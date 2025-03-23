@@ -99,6 +99,7 @@ app.get("/", (req, res) => {
             ` : `<p>У вас пока нет полученных кодов.</p>`}
             <footer>
                 <p>Ваш юзер агент: ${userAgent}</p>
+                <p>Код сайта доступен на <a href="https://github.com/MichaelSoftWare2025/Verifycodes">Github</a></p>
             </footer>
 
             <!-- Подключение Socket.IO -->
