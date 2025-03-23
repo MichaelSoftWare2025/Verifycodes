@@ -1,13 +1,8 @@
 const express = require("express");
 const fs = require("fs");
 const crypto = require("crypto");
-const http = require("http");
-const socketIo = require("socket.io");
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server); // Инициализация socket.io
-
 app.use(express.json()); // Для обработки JSON в теле запроса
 
 const CODES_FILE = "/tmp/codes.json"; // Используем /tmp для хранения данных в серверлес-среде на Render
@@ -46,7 +41,6 @@ setInterval(() => {
         }
     });
     saveCodes(codes); // Сохраняем обновленные данные
-    io.emit('codesUpdated'); // Отправляем событие клиенту, чтобы обновить страницу
 }, 1000);
 
 // Функция для получения уникального хэша юзер-агента
@@ -99,18 +93,7 @@ app.get("/", (req, res) => {
             ` : `<p>У вас пока нет полученных кодов.</p>`}
             <footer>
                 <p>Ваш юзер агент: ${userAgent}</p>
-                <p>Код сайта доступен на <a href="https://github.com/MichaelSoftWare2025/Verifycodes">Github</a></p>
             </footer>
-
-            <!-- Подключение Socket.IO -->
-            <script src="/socket.io/socket.io.js"></script>
-            <script>
-                const socket = io();
-                // Обработчик события обновления кодов
-                socket.on('codesUpdated', () => {
-                    location.reload(); // Перезагружаем страницу
-                });
-            </script>
         </body>
         </html>
     `);
@@ -131,14 +114,12 @@ app.post("/", (req, res) => {
 
     saveCodes(codes); // Сохраняем данные
 
-    io.emit('codesUpdated'); // Отправляем событие всем клиентам
-
     res.status(200).json({ success: true });
 });
 
 // Установка порта из переменной окружения, по умолчанию 80
 const PORT = process.env.PORT || 80;
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
