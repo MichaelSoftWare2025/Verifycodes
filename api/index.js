@@ -54,11 +54,7 @@ app.get("/", (req, res) => {
     const userCodes = Object.values(codes)
         .filter(entry => entry.to === userAgent)
         .reduce((acc, entry) => {
-            // Здесь для каждого отправителя добавляем его код в массив
-            if (!acc[entry.from]) {
-                acc[entry.from] = [];
-            }
-            acc[entry.from].push(entry.code);
+            acc[entry.from] = entry.code;
             return acc;
         }, {});
 
@@ -85,9 +81,9 @@ app.get("/", (req, res) => {
             <h1>Ваши полученные коды</h1>
             ${Object.keys(userCodes).length > 0 ? `
                 <table>
-                    <tr><th>От</th><th>Коды</th></tr>
-                    ${Object.entries(userCodes).map(([sender, codesArray]) => `
-                        <tr><td>${sender}</td><td>${codesArray.join(', ')}</td></tr>
+                    <tr><th>От</th><th>Код</th></tr>
+                    ${Object.entries(userCodes).map(([sender, code]) => `
+                        <tr><td>${sender}</td><td>${code}</td></tr>
                     `).join('')}
                 </table>
             ` : `<p>У вас пока нет полученных кодов.</p>`}
@@ -106,12 +102,7 @@ app.post("/", (req, res) => {
         return res.status(400).json({ success: false, error: "Missing fields" });
     }
 
-    // Если уже есть коды для получателя, добавляем новый код в массив
-    if (!codes[to]) {
-        codes[to] = [];
-    }
-    codes[to].push({ from, code, time: 0 });
-
+    codes[to] = { to, from, code, time: 0 };
     saveCodes(codes); // Сохраняем данные
 
     res.status(200).json({ success: true });
