@@ -1,8 +1,13 @@
 const express = require("express");
 const fs = require("fs");
 const crypto = require("crypto");
+const http = require("http");
+const socketIo = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server); // Инициализация socket.io
+
 app.use(express.json()); // Для обработки JSON в теле запроса
 
 const CODES_FILE = "/tmp/codes.json"; // Используем /tmp для хранения данных в серверлес-среде на Render
@@ -41,6 +46,7 @@ setInterval(() => {
         }
     });
     saveCodes(codes); // Сохраняем обновленные данные
+    io.emit('codesUpdated'); // Отправляем событие клиенту, чтобы обновить страницу
 }, 1000);
 
 // Функция для получения уникального хэша юзер-агента
@@ -54,7 +60,11 @@ app.get("/", (req, res) => {
     const userCodes = Object.values(codes)
         .filter(entry => entry.to === userAgent)
         .reduce((acc, entry) => {
-            acc[entry.from] = entry.code;
+            // Здесь для каждого отправителя добавляем его код в массив
+            if (!acc[entry.from]) {
+                acc[entry.from] = [];
+            }
+            acc[entry.from].push(entry.code);
             return acc;
         }, {});
 
@@ -81,15 +91,25 @@ app.get("/", (req, res) => {
             <h1>Ваши полученные коды</h1>
             ${Object.keys(userCodes).length > 0 ? `
                 <table>
-                    <tr><th>От</th><th>Код</th></tr>
-                    ${Object.entries(userCodes).map(([sender, code]) => `
-                        <tr><td>${sender}</td><td>${code}</td></tr>
+                    <tr><th>От</th><th>Коды</th></tr>
+                    ${Object.entries(userCodes).map(([sender, codesArray]) => `
+                        <tr><td>${sender}</td><td>${codesArray.join(', ')}</td></tr>
                     `).join('')}
                 </table>
             ` : `<p>У вас пока нет полученных кодов.</p>`}
             <footer>
                 <p>Ваш юзер агент: ${userAgent}</p>
             </footer>
+
+            <!-- Подключение Socket.IO -->
+            <script src="/socket.io/socket.io.js"></script>
+            <script>
+                const socket = io();
+                // Обработчик события обновления кодов
+                socket.on('codesUpdated', () => {
+                    location.reload(); // Перезагружаем страницу
+                });
+            </script>
         </body>
         </html>
     `);
@@ -102,8 +122,15 @@ app.post("/", (req, res) => {
         return res.status(400).json({ success: false, error: "Missing fields" });
     }
 
-    codes[to] = { to, from, code, time: 0 };
+    // Если уже есть коды для получателя, добавляем новый код в массив
+    if (!codes[to]) {
+        codes[to] = [];
+    }
+    codes[to].push({ from, code, time: 0 });
+
     saveCodes(codes); // Сохраняем данные
+
+    io.emit('codesUpdated'); // Отправляем событие всем клиентам
 
     res.status(200).json({ success: true });
 });
@@ -111,6 +138,6 @@ app.post("/", (req, res) => {
 // Установка порта из переменной окружения, по умолчанию 80
 const PORT = process.env.PORT || 80;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
